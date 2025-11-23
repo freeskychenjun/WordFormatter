@@ -353,13 +353,15 @@ class WordProcessor:
     def _apply_text_indent_and_align(self, para):
         # 标题不缩进
         para.paragraph_format.first_line_indent = None
-        # para.paragraph_format.left_indent = Cm(self.config['left_indent_cm'])
+        para.paragraph_format.left_indent = Pt(0)
         # para.paragraph_format.right_indent = Cm(self.config['right_indent_cm'])
         # 不设置首行缩进
         # para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         # 显式设置首行缩进字符数为0，确保所有有大纲级别的内容都不会应用首行缩进
+        # 同时设置leftChars为0，确保不产生任何左缩进
         ind = para._p.get_or_add_pPr().get_or_add_ind()
         ind.set(qn("w:firstLineChars"), "0")
+        ind.set(qn("w:leftChars"), "0")
 
     def _apply_body_text_indent_and_align(self, para):
         # 正文首行缩进2字符
@@ -622,11 +624,26 @@ class WordProcessor:
                                 config_bold_key = f'{("figure" if detected_type == "图" else "table")}_caption_bold'
                                 config_bold = self.config.get(config_bold_key, False)
                                 self._apply_font_to_runs(potential_caption, config_font, config_size, set_color=apply_color, is_bold=config_bold)
-                                # 表格标题不缩进
+                                # 表格/图表标题不缩进，确保完全没有任何缩进
                                 potential_caption.paragraph_format.first_line_indent = None
                                 potential_caption.paragraph_format.left_indent = Pt(0)
+                                potential_caption.paragraph_format.right_indent = Pt(0)
+                                # 确保完全清除任何可能的缩进设置
                                 ind = potential_caption._p.get_or_add_pPr().get_or_add_ind()
                                 ind.set(qn("w:firstLineChars"), "0")
+                                ind.set(qn("w:leftChars"), "0")
+                                # 移除任何可能存在的其他缩进相关属性
+                                if hasattr(ind, 'get_or_add_firstLine'):
+                                    try:
+                                        ind.remove(ind.get_or_add_firstLine())
+                                    except:
+                                        pass
+                                # 确保应用正确的缩进设置
+                                if qn("w:firstLine") in [child.tag for child in ind]:
+                                    for child in ind:
+                                        if child.tag == qn("w:firstLine"):
+                                            ind.remove(child)
+                                            break
                                 
                                 # 应用大纲级别设置
                                 outline_level_key = f'{("figure" if detected_type == "图" else "table")}_caption_outline_level'
@@ -747,11 +764,26 @@ class WordProcessor:
                                     config_size = self.config['table_caption_size']
                                     config_bold = self.config.get('table_caption_bold', False)
                                     self._apply_font_to_runs(para, config_font, config_size, set_color=apply_color, is_bold=config_bold)
-                                    # 表格标题不缩进
+                                    # 表格标题不缩进，确保完全没有任何缩进
                                     para.paragraph_format.first_line_indent = None
                                     para.paragraph_format.left_indent = Pt(0)
+                                    para.paragraph_format.right_indent = Pt(0)
+                                    # 确保完全清除任何可能的缩进设置
                                     ind = para._p.get_or_add_pPr().get_or_add_ind()
                                     ind.set(qn("w:firstLineChars"), "0")
+                                    ind.set(qn("w:leftChars"), "0")
+                                    # 移除任何可能存在的其他缩进相关属性
+                                    if hasattr(ind, 'get_or_add_firstLine'):
+                                        try:
+                                            ind.remove(ind.get_or_add_firstLine())
+                                        except:
+                                            pass
+                                    # 确保应用正确的缩进设置
+                                    if qn("w:firstLine") in [child.tag for child in ind]:
+                                        for child in ind:
+                                            if child.tag == qn("w:firstLine"):
+                                                ind.remove(child)
+                                                break
                                     
                                     # 应用表格标题大纲级别设置
                                     if 'table_caption_outline_level' in self.config:
@@ -1220,10 +1252,10 @@ class WordFormatterGUI:
         button_frame.pack(fill=tk.X)
         
         # 配置按钮 - 2x2布局
-        config_buttons = ttk.LabelFrame(button_frame, text="配置管理", padding=10)
+        config_buttons = ttk.LabelFrame(button_frame, text="参数管理", padding=10)
         config_buttons.pack(fill=tk.X, pady=(0, 10))
-        ttk.Button(config_buttons, text="加载配置", command=self.load_config).grid(row=0, column=0, sticky='ew', padx=5, pady=5)
-        ttk.Button(config_buttons, text="保存配置", command=self.save_config).grid(row=0, column=1, sticky='ew', padx=5, pady=5)
+        ttk.Button(config_buttons, text="加载参数", command=self.load_config).grid(row=0, column=0, sticky='ew', padx=5, pady=5)
+        ttk.Button(config_buttons, text="保存参数", command=self.save_config).grid(row=0, column=1, sticky='ew', padx=5, pady=5)
         ttk.Button(config_buttons, text="保存为默认", command=self.save_default_config).grid(row=1, column=0, sticky='ew', padx=5, pady=5)
         ttk.Button(config_buttons, text="恢复内置默认", command=self.load_defaults).grid(row=1, column=1, sticky='ew', padx=5, pady=5)
         config_buttons.columnconfigure(0, weight=1)
@@ -1426,7 +1458,7 @@ class WordFormatterGUI:
                 self._apply_config(loaded_config)
                 messagebox.showinfo("成功", "配置已加载")
             except Exception as e:
-                messagebox.showerror("错误", f"加载配置文件失败: {e}")
+                messagebox.showerror("错误", f"加载参数文件失败: {e}")
 
     def _update_listbox_placeholder(self):
         if self.file_listbox.size() == 0:
