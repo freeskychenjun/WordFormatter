@@ -619,7 +619,9 @@ class WordProcessor:
                                 config_size_key = f'{("figure" if detected_type == "图" else "table")}_caption_size'
                                 config_font = self.config[config_font_key]
                                 config_size = self.config[config_size_key]
-                                self._apply_font_to_runs(potential_caption, config_font, config_size, set_color=apply_color)
+                                config_bold_key = f'{("figure" if detected_type == "图" else "table")}_caption_bold'
+                                config_bold = self.config.get(config_bold_key, False)
+                                self._apply_font_to_runs(potential_caption, config_font, config_size, set_color=apply_color, is_bold=config_bold)
                                 # 表格标题不缩进
                                 potential_caption.paragraph_format.first_line_indent = None
                                 potential_caption.paragraph_format.left_indent = Pt(0)
@@ -743,7 +745,8 @@ class WordProcessor:
                                     self._log(f"  > 发现表格内部标题: \"{text[:30]}...\"")
                                     config_font = self.config['table_caption_font']
                                     config_size = self.config['table_caption_size']
-                                    self._apply_font_to_runs(para, config_font, config_size, set_color=apply_color)
+                                    config_bold = self.config.get('table_caption_bold', False)
+                                    self._apply_font_to_runs(para, config_font, config_size, set_color=apply_color, is_bold=config_bold)
                                     # 表格标题不缩进
                                     para.paragraph_format.first_line_indent = None
                                     para.paragraph_format.left_indent = Pt(0)
@@ -952,7 +955,9 @@ class WordFormatterGUI:
             # 添加标题粗体设置
             'h1_bold': False,  # 一级标题默认不加粗
             'h2_bold': True,   # 二级标题默认加粗
-            'h3_bold': False   # 三级标题默认不加粗
+            'h3_bold': False,  # 三级标题默认不加粗
+            'table_caption_bold': False,  # 表格标题默认不加粗
+            'figure_caption_bold': False  # 图形标题默认不加粗
         }
         self.font_options = {
             'h1': ['黑体', '方正黑体_GBK', '方正黑体简体', '华文黑体', '宋体'],
@@ -1174,22 +1179,36 @@ class WordFormatterGUI:
         row = create_section_header("其他元素", None, row)
         create_combo("表格标题字体", 'table_caption_font', self.font_options['table_caption'], row, 0, readonly=False, width=18)
         create_font_size_combo("表格标题字号", 'table_caption_size', row, 2, width=18)
-
-        # 添加表格标题大纲级别设置
+        # 添加表格标题大纲级别（移到同一行）
         ttk.Label(params_frame, text="表格标题大纲级别").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
         table_outline_combo = ttk.Combobox(params_frame, values=['无', '1', '2', '3', '4', '5', '6', '7', '8', '9'], width=18)
         table_outline_combo.grid(row=row, column=5, sticky=tk.EW, padx=5, pady=3)
         table_outline_combo.set('8')  # 默认为8级
         self.entries['table_caption_outline_level'] = table_outline_combo
         row += 1
+        # 添加表格标题加粗复选框（放在大纲级别控件下方）
+        ttk.Label(params_frame, text="表格标题加粗").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
+        table_bold_var = tk.BooleanVar(value=False)  # 默认为不加粗
+        table_bold_checkbox = ttk.Checkbutton(params_frame, variable=table_bold_var)
+        table_bold_checkbox.grid(row=row, column=5, sticky=tk.W, padx=5, pady=3)
+        self.checkboxes['table_caption_bold'] = table_bold_var
+        row += 1
+        
         create_combo("图形标题字体", 'figure_caption_font', self.font_options['figure_caption'], row, 0, readonly=False, width=18)
         create_font_size_combo("图形标题字号", 'figure_caption_size', row, 2, width=18)
-        # 添加图表标题大纲级别设置
+        # 添加图表标题大纲级别（移到同一行）
         ttk.Label(params_frame, text="图表标题大纲级别").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
         figure_outline_combo = ttk.Combobox(params_frame, values=['无', '1', '2', '3', '4', '5', '6', '7', '8', '9'], width=18)
         figure_outline_combo.grid(row=row, column=5, sticky=tk.EW, padx=5, pady=3)
         figure_outline_combo.set('6')  # 默认为6级
         self.entries['figure_caption_outline_level'] = figure_outline_combo
+        row += 1
+        # 添加图形标题加粗复选框（放在大纲级别控件下方）
+        ttk.Label(params_frame, text="图形标题加粗").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
+        figure_bold_var = tk.BooleanVar(value=False)  # 默认为不加粗
+        figure_bold_checkbox = ttk.Checkbutton(params_frame, variable=figure_bold_var)
+        figure_bold_checkbox.grid(row=row, column=5, sticky=tk.W, padx=5, pady=3)
+        self.checkboxes['figure_caption_bold'] = figure_bold_var
         row += 1
 
         # Section: Global Options
