@@ -351,17 +351,44 @@ class WordProcessor:
         return original_level
 
     def _apply_text_indent_and_align(self, para):
-        # 标题不缩进
+        # 检查是否是图表标题，如果是则跳过，防止覆盖之前设置的缩进
+        if hasattr(para, '_has_no_indent') and para._has_no_indent:
+            return
+            
+        # 标题不缩进，确保完全移除所有缩进设置
         para.paragraph_format.first_line_indent = None
         para.paragraph_format.left_indent = Pt(0)
-        # para.paragraph_format.right_indent = Cm(self.config['right_indent_cm'])
+        para.paragraph_format.right_indent = Pt(0)
+        para.paragraph_format.hanging_indent = Pt(0)
         # 不设置首行缩进
         # para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        # 显式设置首行缩进字符数为0，确保所有有大纲级别的内容都不会应用首行缩进
-        # 同时设置leftChars为0，确保不产生任何左缩进
-        ind = para._p.get_or_add_pPr().get_or_add_ind()
-        ind.set(qn("w:firstLineChars"), "0")
-        ind.set(qn("w:leftChars"), "0")
+        
+        # 确保彻底清除所有缩进相关设置
+        try:
+            pPr = para._p.get_or_add_pPr()
+            
+            # 获取或创建缩进元素
+            if pPr.find(qn('w:ind')) is None:
+                ind = OxmlElement('w:ind')
+                pPr.append(ind)
+            else:
+                ind = pPr.find(qn('w:ind'))
+            
+            # 清除所有可能的缩进属性
+            for attr in ['w:firstLine', 'w:firstLineChars', 'w:left', 'w:leftChars', 
+                        'w:right', 'w:rightChars', 'w:hanging', 'w:hangingChars']:
+                if attr in ind.attrib:
+                    del ind.attrib[attr]
+            
+            # 显式设置为0 - 使用不同单位确保彻底移除缩进
+            ind.set(qn('w:firstLineChars'), '0')
+            ind.set(qn('w:leftChars'), '0')
+            ind.set(qn('w:rightChars'), '0')
+            ind.set(qn('w:firstLine'), '0')
+            ind.set(qn('w:left'), '0')
+            ind.set(qn('w:right'), '0')
+        except Exception as e:
+            self._log(f"设置标题缩进时出错: {e}")
 
     def _apply_body_text_indent_and_align(self, para):
         # 正文首行缩进2字符
@@ -628,22 +655,37 @@ class WordProcessor:
                                 potential_caption.paragraph_format.first_line_indent = None
                                 potential_caption.paragraph_format.left_indent = Pt(0)
                                 potential_caption.paragraph_format.right_indent = Pt(0)
-                                # 确保完全清除任何可能的缩进设置
-                                ind = potential_caption._p.get_or_add_pPr().get_or_add_ind()
-                                ind.set(qn("w:firstLineChars"), "0")
-                                ind.set(qn("w:leftChars"), "0")
-                                # 移除任何可能存在的其他缩进相关属性
-                                if hasattr(ind, 'get_or_add_firstLine'):
-                                    try:
-                                        ind.remove(ind.get_or_add_firstLine())
-                                    except:
-                                        pass
-                                # 确保应用正确的缩进设置
-                                if qn("w:firstLine") in [child.tag for child in ind]:
-                                    for child in ind:
-                                        if child.tag == qn("w:firstLine"):
-                                            ind.remove(child)
-                                            break
+                                potential_caption.paragraph_format.hanging_indent = Pt(0)
+                                
+                                # 确保完全清除任何可能的缩进设置 - 使用更健壮的方式
+                                try:
+                                    pPr = potential_caption._p.get_or_add_pPr()
+                                    
+                                    # 获取或创建缩进元素
+                                    if pPr.find(qn('w:ind')) is None:
+                                        ind = OxmlElement('w:ind')
+                                        pPr.append(ind)
+                                    else:
+                                        ind = pPr.find(qn('w:ind'))
+                                    
+                                    # 清除所有可能的缩进属性
+                                    for attr in ['w:firstLine', 'w:firstLineChars', 'w:left', 'w:leftChars', 
+                                                'w:right', 'w:rightChars', 'w:hanging', 'w:hangingChars']:
+                                        if attr in ind.attrib:
+                                            del ind.attrib[attr]
+                                    
+                                    # 显式设置为0 - 使用不同单位确保彻底移除缩进
+                                    ind.set(qn('w:firstLineChars'), '0')
+                                    ind.set(qn('w:leftChars'), '0')
+                                    ind.set(qn('w:rightChars'), '0')
+                                    ind.set(qn('w:firstLine'), '0')
+                                    ind.set(qn('w:left'), '0')
+                                    ind.set(qn('w:right'), '0')
+                                except Exception as e:
+                                    self._log(f"  > 设置 {detected_type} 标题缩进时出错: {e}")
+                                
+                                # 额外保障措施：记录当前处理的标题，防止后续被覆盖
+                                potential_caption._has_no_indent = True  # 添加标志防止后续被覆盖
                                 
                                 # 应用大纲级别设置
                                 outline_level_key = f'{("figure" if detected_type == "图" else "table")}_caption_outline_level'
