@@ -466,7 +466,7 @@ class WordProcessor:
                 spacing.set(qn('w:afterAutospacing'), '0')
                 para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
 
-                # 标题不缩进
+                # 标题不缩进 - 确保所有标题（1-9级）都不缩进
                 self.document_formatter._apply_text_indent_and_align(para)
                 self.document_formatter._reset_pagination_properties(para)
                 block_idx += 1
