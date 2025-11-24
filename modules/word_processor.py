@@ -380,6 +380,10 @@ class WordProcessor:
                     self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
                                                                 set_color=apply_color)
 
+                # 确保图片或附件中的文字（即使是标题）也不缩进
+                if re_h1.match(text_to_check) or re_h2.match(text_to_check) or re_h3.match(text_to_check) or re_h4.match(text_to_check):
+                    self.document_formatter._apply_text_indent_and_align(para)
+                
                 block_idx += 1
                 continue
 

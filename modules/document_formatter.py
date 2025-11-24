@@ -151,6 +151,13 @@ class DocumentFormatter:
             ind.set(qn('w:firstLine'), '0')
             ind.set(qn('w:left'), '0')
             ind.set(qn('w:right'), '0')
+            
+            # 额外确保没有任何缩进相关的属性存在
+            # 移除可能存在的其他缩进相关元素
+            for child in list(ind):
+                if child.tag in [qn('w:firstLine'), qn('w:firstLineChars'), qn('w:left'), qn('w:leftChars'),
+                                qn('w:right'), qn('w:rightChars'), qn('w:hanging'), qn('w:hangingChars')]:
+                    ind.remove(child)
         except Exception as e:
             self._log(f"设置标题缩进时出错: {e}")
 
@@ -162,6 +169,16 @@ class DocumentFormatter:
         ind = para._p.get_or_add_pPr().get_or_add_ind()
         ind.set(qn("w:firstLineChars"), "200")
         para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+        # 确保没有其他样式影响缩进
+        try:
+            # 清除可能存在的大纲级别设置，确保正文段落不受标题样式影响
+            pPr = para._p.get_or_add_pPr()
+            outlineLvl = pPr.find(qn('w:outlineLvl'))
+            if outlineLvl is not None:
+                pPr.remove(outlineLvl)
+        except Exception as e:
+            self._log(f"清除正文段落大纲级别时出错: {e}")
 
     def _iter_block_items(self, parent):
         parent_elm = parent.element.body if isinstance(parent, _Document) else parent._tc
