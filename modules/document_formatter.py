@@ -120,6 +120,7 @@ class DocumentFormatter:
             return
 
         # 标题不缩进，确保完全移除所有缩进设置
+        # 首先通过python-docx的API清除所有缩进
         para.paragraph_format.first_line_indent = None
         para.paragraph_format.left_indent = Pt(0)
         para.paragraph_format.right_indent = Pt(0)
@@ -127,7 +128,7 @@ class DocumentFormatter:
         # 不设置首行缩进
         # para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-        # 确保彻底清除所有缩进相关设置
+        # 确保彻底清除所有缩进相关设置 - 使用更健壮的方式
         try:
             pPr = para._p.get_or_add_pPr()
 
@@ -158,8 +159,30 @@ class DocumentFormatter:
                 if child.tag in [qn('w:firstLine'), qn('w:firstLineChars'), qn('w:left'), qn('w:leftChars'),
                                 qn('w:right'), qn('w:rightChars'), qn('w:hanging'), qn('w:hangingChars')]:
                     ind.remove(child)
+            
+            # 确保标题没有任何缩进 - 特别针对一至四级标题的额外保障
+            # 直接操作底层XML元素，确保完全清除所有缩进设置
+            # 重新创建一个干净的缩进元素
+            new_ind = OxmlElement('w:ind')
+            new_ind.set(qn('w:firstLineChars'), '0')
+            new_ind.set(qn('w:leftChars'), '0')
+            
+            # 替换原有的缩进元素
+            if pPr.find(qn('w:ind')) is not None:
+                pPr.remove(pPr.find(qn('w:ind')))
+            pPr.append(new_ind)
+            
+            # 设置标记，表明这个段落已经明确设置为无缩进
+            para._has_no_indent = True
+            
         except Exception as e:
             self._log(f"设置标题缩进时出错: {e}")
+            # 即使发生异常，仍然尝试通过简单的API调用确保没有缩进
+            try:
+                para.paragraph_format.first_line_indent = None
+                para.paragraph_format.left_indent = Pt(0)
+            except:
+                pass
 
     def _apply_body_text_indent_and_align(self, para):
         # 正文首行缩进2字符
