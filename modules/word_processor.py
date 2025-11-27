@@ -114,9 +114,13 @@ class WordProcessor:
                         if not isinstance(potential_caption, Paragraph): break
                         text = potential_caption.text.strip()
                         if text:
-                            if potential_caption.alignment == WD_ALIGN_PARAGRAPH.CENTER and (
-                                    text.startswith("图") or text.startswith("表")):
+                            # 单独成行且以"图"或"表"开头的段落都识别为图表标题，不再要求居中对齐
+                            if text.startswith("图") or text.startswith("表"):
                                 detected_type = "图" if text.startswith("图") else "表"
+                                # 如果标题未居中，设置为居中对齐
+                                if potential_caption.alignment != WD_ALIGN_PARAGRAPH.CENTER:
+                                    potential_caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    self._log(f"  > 已将未居中的{detected_type}标题设置为居中对齐")
                                 self._log(f"  > 发现 {detected_type} 的标题: \"{text[:30]}...\" (在段落 {i + 1})")
                                 config_font_key = f'{("figure" if detected_type == "图" else "table")}_caption_font'
                                 config_size_key = f'{("figure" if detected_type == "图" else "table")}_caption_size'
@@ -198,8 +202,14 @@ class WordProcessor:
 
         re_h1 = re.compile(r'^[一二三四五六七八九十百千万零]+\s*、')
         re_h2 = re.compile(r'^[（\(][一二三四五六七八九十百千万零]+[）\)]')
+        # 原有的正则表达式保留，但添加更精确的数字编号识别
         re_h3 = re.compile(r'^\d+\s*[\.．]')
         re_h4 = re.compile(r'^[（\(]\d+[）\)]')
+        # 添加新的正则表达式，根据点的数量识别不同级别的数字编号标题
+        re_number_h2 = re.compile(r'^\d+\s*[\.．]\s*\d+\s*[\.．]\s*$')  # 例如 "7.9." (1个点)
+        re_number_h3 = re.compile(r'^\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*$')  # 例如 "7.9.4." (2个点)
+        re_number_h4 = re.compile(r'^\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*$')  # 例如 "7.8.5.3." (3个点)
+        re_number_h5 = re.compile(r'^\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*$')  # 例如 "7.8.5.3.1." (4个点)
         re_attachment = re.compile(r'^附件\s*(\d+|[一二三四五六七八九十百千万零]+)?\s*[:：]?$')
 
         # 格式化主标题
@@ -225,6 +235,11 @@ class WordProcessor:
                 para.paragraph_format.space_before = Pt(h1_space_before_pts)
                 para.paragraph_format.space_after = Pt(h1_space_after_pts)
                 para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+                
+                # 设置大纲级别为1级
+                if self.config['set_outline']:
+                    self.document_formatter._set_outline_level(para, 1)
+                    self._log(f"  > 已设置主标题的大纲级别为 1")
 
                 self.document_formatter._reset_pagination_properties(para)
 
@@ -318,29 +333,41 @@ class WordProcessor:
                                             pass  # 忽略无效值
 
                                 break
-                # 处理表格内的其他单元格内容
-                # 当正文字体设置为仿宋时，表格内容的字体也设置为仿宋
+                # 处理表格内的所有单元格内容
                 body_font = self.config['body_font']
-                # 检查是否为仿宋系列字体
-                if '仿宋' in body_font:
-                    # 遍历表格的所有行和单元格
-                    for row in table.rows:
-                        for cell in row.cells:
-                            # 遍历单元格中的所有段落
-                            for para in cell.paragraphs:
-                                # 跳过已经处理过的表格标题
-                                if para.alignment == WD_ALIGN_PARAGRAPH.CENTER and para.text.strip().startswith("表"):
-                                    continue
-                                # 应用仿宋字体到表格内容，保持原有的字号
-                                for run in para.runs:
-                                    original_font_name = run.font.name
-                                    original_font_size = run.font.size
-                                    # 保持原有字号，只改变字体名称
+                
+                # 遍历表格的所有行和单元格，确保表格内容的字体大小始终保持不变
+                for row in table.rows:
+                    for cell in row.cells:
+                        # 遍历单元格中的所有段落
+                        for para in cell.paragraphs:
+                            # 跳过已经处理过的表格标题
+                            if para.alignment == WD_ALIGN_PARAGRAPH.CENTER and para.text.strip().startswith("表"):
+                                continue
+                                
+                            # 遍历段落中的所有run
+                            for run in para.runs:
+                                # 保存原始字体大小
+                                original_font_size = run.font.size
+                                
+                                # 只有当需要设置仿宋字体时才修改字体名称
+                                # 但无论如何，字体大小必须严格保持原始值
+                                if '仿宋' in body_font and original_font_size:
+                                    # 仅修改字体名称，严格保持原始字体大小
                                     self.document_formatter._set_run_font(
                                         run, body_font, 
-                                        original_font_size.pt if original_font_size else self.config['body_size'],
+                                        original_font_size.pt,  # 严格使用原始字体大小
                                         set_color=apply_color
                                     )
+                                elif '仿宋' in body_font and not original_font_size:
+                                    # 对于没有明确字体大小的情况，也使用一个合理的默认值
+                                    # 但不使用正文字体大小，以避免受正文字体设置影响
+                                    self.document_formatter._set_run_font(
+                                        run, body_font, 
+                                        12,  # 使用固定的默认大小12pt，不受正文字体设置影响
+                                        set_color=apply_color
+                                    )
+                                # 其他情况不做任何修改，完全保持表格内容的原始格式
                 block_idx += 1
                 continue
 
@@ -476,7 +503,132 @@ class WordProcessor:
                 block_idx += 1
                 continue
 
-            # 取消自动识别"一、"、"（一）"、"1."、"(1)"等四级常规标题的功能
+            # 检查是否为单独占一行的数字编号标题
+            if not (outline_level is not None or is_heading_style):
+                # 检查是否单独成行（排除段落中间的数字编号）
+                lines = para.text.split('\n')
+                if len(lines) == 1:
+                    # 使用正则表达式精确匹配标题格式，避免将普通文本中的小数点误识别
+                    text = para.text.strip()
+                    
+                    # 2级标题格式: "7.9 文本" 或 "7.9. 文本" - 数字后接数字的格式
+                    h2_pattern = re.compile(r'^\d+[\.．]\d+(?:[\.．]\s*)?\s+[\u4e00-\u9fa5a-zA-Z]')
+                    # 3级标题格式: "7.9.4 文本" 或 "7.9.4. 文本" - 三个数字的格式
+                    h3_pattern = re.compile(r'^\d+[\.．]\d+[\.．]\d+(?:[\.．]\s*)?\s+[\u4e00-\u9fa5a-zA-Z]')
+                    # 4级标题格式: "7.9.4.1 文本" 或 "7.9.4.1. 文本" - 四个数字的格式
+                    h4_pattern = re.compile(r'^\d+[\.．]\d+[\.．]\d+[\.．]\d+(?:[\.．]\s*)?\s+[\u4e00-\u9fa5a-zA-Z]')
+                    # 5级标题格式: "7.9.4.1.1 文本" 或 "7.9.4.1.1. 文本" - 五个或更多数字的格式
+                    h5_pattern = re.compile(r'^\d+[\.．]\d+[\.．]\d+[\.．]\d+[\.．]\d+(?:[\.．]\d*)*(?:[\.．]\s*)?\s+[\u4e00-\u9fa5a-zA-Z]')
+                    
+                    if h2_pattern.match(text):
+                        self._log(f"段落 {current_block_num}: 单独成行的2级数字编号标题 - \"{para_text_preview}...\"")
+                        # 应用2级标题格式
+                        self.document_formatter._strip_leading_whitespace(para)
+                        h2_bold = self.config.get('h2_bold', True)
+                        self.document_formatter._apply_font_to_runs(para, self.config['h2_font'], self.config['h2_size'],
+                                                                    set_color=apply_color, is_bold=h2_bold)
+                        # 应用二级标题段前、段后间距
+                        h2_space_before_pts = float(self.config['h2_space_before'])
+                        h2_space_after_pts = float(self.config['h2_space_after'])
+                        para.paragraph_format.space_before = Pt(h2_space_before_pts)
+                        para.paragraph_format.space_after = Pt(h2_space_after_pts)
+                        # 设置标题行间距
+                        spacing = para._p.get_or_add_pPr().get_or_add_spacing()
+                        spacing.set(qn('w:beforeAutospacing'), '0')
+                        spacing.set(qn('w:afterAutospacing'), '0')
+                        para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+                        # 标题不缩进
+                        self.document_formatter._apply_text_indent_and_align(para)
+                        # 如果启用了大纲级别设置，则设置为2级
+                        if self.config['set_outline']:
+                            self.document_formatter._set_outline_level(para, 2)
+                            self._log(f"  > 已设置为2级大纲级别")
+                        # 标记此段落不需要缩进
+                        para._has_no_indent = True
+                        self.document_formatter._reset_pagination_properties(para)
+                        block_idx += 1
+                        continue
+                    elif h3_pattern.match(text):
+                        self._log(f"段落 {current_block_num}: 单独成行的3级数字编号标题 - \"{para_text_preview}...\"")
+                        # 应用3级标题格式
+                        self.document_formatter._strip_leading_whitespace(para)
+                        h3_bold = self.config.get('h3_bold', False)
+                        self.document_formatter._apply_font_to_runs(para, self.config['h3_font'], self.config['h3_size'],
+                                                                    set_color=apply_color, is_bold=h3_bold)
+                        # 应用三级标题段前、段后间距
+                        h3_space_before_pts = float(self.config['h3_space_before'])
+                        h3_space_after_pts = float(self.config['h3_space_after'])
+                        para.paragraph_format.space_before = Pt(h3_space_before_pts)
+                        para.paragraph_format.space_after = Pt(h3_space_after_pts)
+                        # 设置标题行间距
+                        spacing = para._p.get_or_add_pPr().get_or_add_spacing()
+                        spacing.set(qn('w:beforeAutospacing'), '0')
+                        spacing.set(qn('w:afterAutospacing'), '0')
+                        para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+                        # 标题不缩进
+                        self.document_formatter._apply_text_indent_and_align(para)
+                        # 如果启用了大纲级别设置，则设置为3级
+                        if self.config['set_outline']:
+                            self.document_formatter._set_outline_level(para, 3)
+                            self._log(f"  > 已设置为3级大纲级别")
+                        # 标记此段落不需要缩进
+                        para._has_no_indent = True
+                        self.document_formatter._reset_pagination_properties(para)
+                        block_idx += 1
+                        continue
+                    elif h4_pattern.match(text):
+                        self._log(f"段落 {current_block_num}: 单独成行的4级数字编号标题 - \"{para_text_preview}...\"")
+                        # 应用4级标题格式（使用正文字体）
+                        self.document_formatter._strip_leading_whitespace(para)
+                        # 4级标题使用正文字体
+                        self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
+                                                                    set_color=apply_color)
+                        # 设置默认间距
+                        para.paragraph_format.space_before = Pt(0)
+                        para.paragraph_format.space_after = Pt(0)
+                        # 设置标题行间距
+                        spacing = para._p.get_or_add_pPr().get_or_add_spacing()
+                        spacing.set(qn('w:beforeAutospacing'), '0')
+                        spacing.set(qn('w:afterAutospacing'), '0')
+                        para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+                        # 标题不缩进
+                        self.document_formatter._apply_text_indent_and_align(para)
+                        # 如果启用了大纲级别设置，则设置为4级
+                        if self.config['set_outline']:
+                            self.document_formatter._set_outline_level(para, 4)
+                            self._log(f"  > 已设置为4级大纲级别")
+                        # 标记此段落不需要缩进
+                        para._has_no_indent = True
+                        self.document_formatter._reset_pagination_properties(para)
+                        block_idx += 1
+                        continue
+                    elif h5_pattern.match(text):
+                        self._log(f"段落 {current_block_num}: 单独成行的5级数字编号标题 - \"{para_text_preview}...\"")
+                        # 应用5级标题格式（使用正文字体）
+                        self.document_formatter._strip_leading_whitespace(para)
+                        # 5级标题使用正文字体
+                        self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
+                                                                    set_color=apply_color)
+                        # 设置默认间距
+                        para.paragraph_format.space_before = Pt(0)
+                        para.paragraph_format.space_after = Pt(0)
+                        # 设置标题行间距
+                        spacing = para._p.get_or_add_pPr().get_or_add_spacing()
+                        spacing.set(qn('w:beforeAutospacing'), '0')
+                        spacing.set(qn('w:afterAutospacing'), '0')
+                        para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+                        # 标题不缩进
+                        self.document_formatter._apply_text_indent_and_align(para)
+                        # 如果启用了大纲级别设置，则设置为5级
+                        if self.config['set_outline']:
+                            self.document_formatter._set_outline_level(para, 5)
+                            self._log(f"  > 已设置为5级大纲级别")
+                        # 标记此段落不需要缩进
+                        para._has_no_indent = True
+                        self.document_formatter._reset_pagination_properties(para)
+                        block_idx += 1
+                        continue
+            # 取消自动识别"一、"、"（一）"、"1."、"(1)"等常规标题的功能
             # 直接将这些段落作为正文处理
             if re_h1.match(text_to_check) or re_h2.match(text_to_check) or re_h3.match(text_to_check) or re_h4.match(
                     text_to_check):

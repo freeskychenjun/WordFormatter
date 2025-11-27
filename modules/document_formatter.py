@@ -88,7 +88,13 @@ class DocumentFormatter:
         if outlineLvl is not None:
             val = outlineLvl.get(qn('w:val'))
             if val is not None:
-                return int(val)
+                try:
+                    level = int(val)
+                    # 确保返回值在有效范围内
+                    if 0 <= level <= 8:
+                        return level
+                except ValueError:
+                    pass
         return None
 
     def _set_outline_level(self, para, level):
@@ -104,73 +110,59 @@ class DocumentFormatter:
         # 读取原有大纲级别
         original_level = self._get_outline_level(para)
 
+        # 确保级别值正确（1-9）
+        level_value = max(1, min(9, level))
+        
         # 设置新的大纲级别 (Word内部用0-8表示1-9级)
         pPr = para._p.get_or_add_pPr()
         outlineLvl = pPr.find(qn('w:outlineLvl'))
         if outlineLvl is None:
             outlineLvl = OxmlElement('w:outlineLvl')
             pPr.append(outlineLvl)
-        outlineLvl.set(qn('w:val'), str(level - 1))
+        # 确保设置的值在0-8范围内
+        outlineLvl.set(qn('w:val'), str(level_value - 1))
 
         return original_level
 
     def _apply_text_indent_and_align(self, para):
-        # 检查是否是图表标题，如果是则跳过，防止覆盖之前设置的缩进
-        if hasattr(para, '_has_no_indent') and para._has_no_indent:
-            return
-
-        # 标题不缩进，确保完全移除所有缩进设置
+        # 对于所有标题，无论之前是否标记过，都强制执行缩进清除
         # 首先通过python-docx的API清除所有缩进
         para.paragraph_format.first_line_indent = None
         para.paragraph_format.left_indent = Pt(0)
         para.paragraph_format.right_indent = Pt(0)
         para.paragraph_format.hanging_indent = Pt(0)
-        # 不设置首行缩进
-        # para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
+        
         # 确保彻底清除所有缩进相关设置 - 使用更健壮的方式
         try:
             pPr = para._p.get_or_add_pPr()
-
-            # 获取或创建缩进元素
-            if pPr.find(qn('w:ind')) is None:
-                ind = OxmlElement('w:ind')
-                pPr.append(ind)
-            else:
-                ind = pPr.find(qn('w:ind'))
-
-            # 清除所有可能的缩进属性
-            for attr in ['w:firstLine', 'w:firstLineChars', 'w:left', 'w:leftChars',
-                         'w:right', 'w:rightChars', 'w:hanging', 'w:hangingChars']:
-                if attr in ind.attrib:
-                    del ind.attrib[attr]
-
-            # 显式设置为0 - 使用不同单位确保彻底移除缩进
-            ind.set(qn('w:firstLineChars'), '0')
-            ind.set(qn('w:leftChars'), '0')
-            ind.set(qn('w:rightChars'), '0')
-            ind.set(qn('w:firstLine'), '0')
-            ind.set(qn('w:left'), '0')
-            ind.set(qn('w:right'), '0')
             
-            # 额外确保没有任何缩进相关的属性存在
-            # 移除可能存在的其他缩进相关元素
-            for child in list(ind):
-                if child.tag in [qn('w:firstLine'), qn('w:firstLineChars'), qn('w:left'), qn('w:leftChars'),
-                                qn('w:right'), qn('w:rightChars'), qn('w:hanging'), qn('w:hangingChars')]:
-                    ind.remove(child)
+            # 完全移除现有的缩进元素，然后创建一个全新的
+            existing_ind = pPr.find(qn('w:ind'))
+            if existing_ind is not None:
+                pPr.remove(existing_ind)
             
-            # 确保标题没有任何缩进 - 特别针对一至四级标题的额外保障
-            # 直接操作底层XML元素，确保完全清除所有缩进设置
-            # 重新创建一个干净的缩进元素
+            # 创建一个全新的、干净的缩进元素
             new_ind = OxmlElement('w:ind')
+            
+            # 显式设置所有可能的缩进属性为0，使用多种单位确保彻底移除缩进
             new_ind.set(qn('w:firstLineChars'), '0')
             new_ind.set(qn('w:leftChars'), '0')
+            new_ind.set(qn('w:rightChars'), '0')
+            new_ind.set(qn('w:firstLine'), '0')
+            new_ind.set(qn('w:left'), '0')
+            new_ind.set(qn('w:right'), '0')
+            new_ind.set(qn('w:hanging'), '0')
+            new_ind.set(qn('w:hangingChars'), '0')
             
-            # 替换原有的缩进元素
-            if pPr.find(qn('w:ind')) is not None:
-                pPr.remove(pPr.find(qn('w:ind')))
+            # 添加到pPr元素
             pPr.append(new_ind)
+            
+            # 检查并移除可能影响缩进的其他元素
+            for element_name in ['w:firstLine', 'w:firstLineChars', 'w:left', 'w:leftChars',
+                                'w:right', 'w:rightChars', 'w:hanging', 'w:hangingChars']:
+                element = pPr.find(qn(element_name))
+                if element is not None:
+                    pPr.remove(element)
             
             # 设置标记，表明这个段落已经明确设置为无缩进
             para._has_no_indent = True
@@ -180,6 +172,10 @@ class DocumentFormatter:
             # 即使发生异常，仍然尝试通过简单的API调用确保没有缩进
             try:
                 para.paragraph_format.first_line_indent = None
+                para.paragraph_format.left_indent = Pt(0)
+                # 额外添加这一行，直接设置为负数以强制覆盖可能存在的缩进
+                para.paragraph_format.left_indent = Pt(-0.01)
+                # 然后再设置为0
                 para.paragraph_format.left_indent = Pt(0)
             except:
                 pass

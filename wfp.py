@@ -47,13 +47,13 @@ class WordFormatterGUI:
             'page_number_align': '奇偶分页', 'line_spacing': 28,
             'margin_top': 3.7, 'margin_bottom': 3.5, 
             'margin_left': 2.8, 'margin_right': 2.6,
-            'h1_font': '黑体', 'h2_font': '楷体_GB2312', 'h3_font': '宋体', 'body_font': '仿宋_GB2312',
+            'h1_font': '黑体', 'h2_font': '楷体_GB2312', 'h3_font': '宋体', 'body_font': '宋体',
             'page_number_font': '宋体', 'table_caption_font': '黑体', 'figure_caption_font': '黑体',
-            'h1_size': 16, 'h1_space_before': 24, 'h1_space_after': 24,
-            'h2_size': 16, 'h2_space_before': 24, 'h2_space_after': 24,
+            'h1_size': 18, 'h1_space_before': 24, 'h1_space_after': 24,
+            'h2_size': 12, 'h2_space_before': 24, 'h2_space_after': 24,
             'h3_size': 12, 'h3_space_before': 24, 'h3_space_after': 24,
-            'body_size': 16, 'page_number_size': 14,
-            'table_caption_size': 14, 'figure_caption_size': 14,
+            'body_size': 12, 'page_number_size': 14,
+            'table_caption_size': 10.5, 'figure_caption_size': 10.5,
             # 添加表格标题和图表标题的大纲级别设置，默认为6级
             'table_caption_outline_level': 8, 'figure_caption_outline_level': 6,
             'set_outline': True,
@@ -173,7 +173,7 @@ class WordFormatterGUI:
         log_frame.pack(fill=tk.BOTH, expand=False)
         # 确保调试日志文本框能完全拉伸至窗体边缘
         # 限制调试日志面板高度，仅显示必要内容
-        self.debug_text = scrolledtext.ScrolledText(log_frame, height=4, state='disabled', wrap=tk.WORD)
+        self.debug_text = scrolledtext.ScrolledText(log_frame, height=8, state='disabled', wrap=tk.WORD)
         self.debug_text.pack(fill=tk.BOTH, expand=True)
         
         # 创建统一的右侧内容区域，与左侧面板结构保持一致
