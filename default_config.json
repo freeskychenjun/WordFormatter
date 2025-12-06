@@ -15,7 +15,7 @@
     "h3_size": 12,
     "h3_space_before": 24,
     "h3_space_after": 24,
-    "body_font": "宋体",
+    "body_font": "仿宋_GB2312",
     "body_size": 12,
     "line_spacing": 28,
     "table_caption_font": "黑体",
@@ -27,7 +27,7 @@
     "h1_bold": false,
     "h2_bold": true,
     "h3_bold": false,
-    "table_caption_bold": false,
-    "figure_caption_bold": false,
+    "table_caption_bold": true,
+    "figure_caption_bold": true,
     "set_outline": true
 }

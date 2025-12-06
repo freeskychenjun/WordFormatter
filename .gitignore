@@ -40,6 +40,10 @@ Thumbs.db
 
 # Testing
 pytest_cache/
+test_*.py
+*_test.py
+test_*/
+tests/
 
 # Build outputs
 *.exe
@@ -64,3 +68,11 @@ pids
 *.pid
 *.seed
 *.pid.lock
+
+# Distribution packages
+*.zip
+dist/
+build/
+
+# Trae IDE files
+.trae/

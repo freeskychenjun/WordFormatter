@@ -8,6 +8,8 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 
 # 从模块导入WordProcessor
 from modules.word_processor import WordProcessor
+from modules.update_manager import UpdateManager
+from modules.config_manager import ConfigManager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -15,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class WordFormatterGUI:
     def __init__(self, master):
         self.master = master
-        master.title("报告自动排版工具_JXSLY V1.0.0")
+        master.title("报告自动排版工具_JXSLY V1.1.2")
         # 增加窗体尺寸：宽度增加7%，高度再增加5%
         # 原始尺寸：1320x813，调整后约为1412x942
         master.geometry("1412x942")
@@ -62,7 +64,9 @@ class WordFormatterGUI:
             'h2_bold': True,   # 二级标题默认加粗
             'h3_bold': False,  # 三级标题默认不加粗
             'table_caption_bold': False,  # 表格标题默认不加粗
-            'figure_caption_bold': False  # 图形标题默认不加粗
+            'figure_caption_bold': False,  # 图形标题默认不加粗
+            # 自动更新默认设置
+            'auto_update': True  # 默认启用自动更新
         }
         self.font_options = {
             'h1': ['黑体', '方正黑体_GBK', '方正黑体简体', '华文黑体', '宋体', '仿宋', '仿宋_GB2312'],
@@ -80,9 +84,31 @@ class WordFormatterGUI:
         
         self.create_menu()
         self.create_widgets()
-        self.load_initial_config()
 
+        # 初始化配置管理器
+        self.config_manager = ConfigManager(self.default_config_path)
+        self.config_manager.load_config()
+        
+        # 初始化更新配置管理器
+        update_config_path = os.path.join(os.path.dirname(self.default_config_path), "update_config.json")
+        update_config = self.config_manager.load_update_config(update_config_path)
+        
+        # 检查update_config.json文件是否存在
+        if update_config is None:
+            self.log_to_debug_window("警告: 缺少update_config.json文件，将使用默认更新设置")
+        
+        # 加载初始配置
+        self.load_initial_config()
+        
+        # 初始化更新管理器
+        # 如果update_config为None，使用默认更新配置
+        if update_config is None:
+            update_config = self.config_manager.get_default_update_config()
+        self.update_manager = UpdateManager(update_config, self.log_to_debug_window)
+        
         self.master.after(250, self.set_initial_pane_position)
+        # 程序启动时检查更新
+        self.master.after(1000, self.check_for_updates_once)
 
     def set_initial_pane_position(self):
         # 获取窗口总宽度，设置左侧占约30%
@@ -312,6 +338,8 @@ class WordFormatterGUI:
         self.checkboxes['figure_caption_bold'] = figure_bold_var
         row += 1
 
+
+        
         # Section: Global Options
         ttk.Separator(params_frame, orient='horizontal').grid(row=row, column=0, columnspan=6, sticky='ew', pady=10)
         row += 1
@@ -441,18 +469,11 @@ class WordFormatterGUI:
         #         self.log_to_debug_window(f"{key}: {self.entries[key].get()}")
 
     def load_initial_config(self):
-        if os.path.exists(self.default_config_path):
-            try:
-                with open(self.default_config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                self._apply_config(config)
-                # 不再输出默认配置文件加载信息
-            except Exception as e:
-                self.log_to_debug_window(f"加载默认配置 '{self.default_config_path}' 失败: {e}。将使用内置默认值。")
-                self.load_defaults()
-        else:
-            self.log_to_debug_window("未找到默认配置文件，将使用内置默认值。")
+        # 使用配置管理器加载排版配置
+        if not self.config_manager.format_config:
             self.load_defaults()
+        else:
+            self._apply_config(self.config_manager.format_config)
         
         # 添加定时器，延迟一小段时间后再次应用默认配置，确保UI控件完全创建
         self.master.after(100, self._apply_default_spacing_values)
@@ -460,7 +481,7 @@ class WordFormatterGUI:
     def _apply_config(self, loaded_config):
         self.set_outline_var.set(loaded_config.get('set_outline', True))
         for key, value in loaded_config.items():
-            if key in ['set_outline']: continue
+            if key in ['set_outline', 'auto_update']: continue
             
             # 处理输入框和下拉框的值
             widget = self.entries.get(key)
@@ -474,7 +495,7 @@ class WordFormatterGUI:
                     widget.delete(0, tk.END)
                     widget.insert(0, str(value))
             
-            # 处理复选框的值（标题粗体设置）
+            # 处理复选框的值（仅标题粗体设置）
             checkbox_var = self.checkboxes.get(key)
             if checkbox_var is not None:
                 checkbox_var.set(bool(value))
@@ -501,6 +522,8 @@ class WordFormatterGUI:
         # 收集复选框的值（标题粗体设置）
         for key, checkbox_var in self.checkboxes.items():
             config[key] = checkbox_var.get()
+        # 添加自动更新的默认配置
+        config['auto_update'] = self.default_params['auto_update']
         config['set_outline'] = self.set_outline_var.get()
         return config
 
@@ -587,6 +610,38 @@ class WordFormatterGUI:
     def clear_list(self): 
         self.file_listbox.delete(0, tk.END)
         self._update_listbox_placeholder()
+    
+    def check_for_updates_once(self):
+        """
+        程序启动时检查更新（仅检查一次）
+        """
+        try:
+            # 调用更新管理器检查更新
+            result = self.update_manager.check_for_updates()
+            
+            # 处理返回结果
+            if isinstance(result, tuple) and len(result) == 3:
+                has_update, version, release_info = result
+                if has_update:
+                    # 询问用户是否更新
+                    self.log_to_debug_window(f"发现新版本 v{version}，是否立即更新？")
+                    response = messagebox.askyesno("更新提示", f"发现新版本 v{version}\n\n是否立即更新？")
+                    if response:
+                        self.log_to_debug_window("用户选择更新，开始下载...")
+                        # 下载更新
+                        update_file = self.update_manager.download_update(release_info)
+                        if update_file:
+                            # 安装更新
+                            self.update_manager.install_update(update_file)
+                else:
+                    self.log_to_debug_window(f"当前已是最新版本 v{version}")
+            else:
+                self.log_to_debug_window("未检查到更新")
+        except Exception as e:
+            self.log_to_debug_window(f"更新检查失败: {e}")
+            logging.error(f"更新检查失败: {e}", exc_info=True)
+
+
 
     def start_processing(self):
         warning_title = "处理前重要提示"

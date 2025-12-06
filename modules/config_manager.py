@@ -6,12 +6,17 @@ import logging
 class ConfigManager:
     """配置管理器，用于处理应用程序的配置加载、保存和验证"""
     
-    def __init__(self, default_config_path="default_config.json"):
+    def __init__(self, default_config_path="default_config.json", update_config_path="update_config.json"):
         self.default_config_path = default_config_path
+        self.update_config_path = update_config_path
         self.logger = logging.getLogger(__name__)
         
-        # 默认配置参数
-        self.default_params = {
+        # 存储加载后的配置
+        self.format_config = None
+        self.update_config = None
+        
+        # 默认排版配置参数
+        self.default_format_params = {
             'page_number_align': '奇偶分页', 'line_spacing': 28,
             'margin_top': 3.7, 'margin_bottom': 3.5, 
             'margin_left': 2.8, 'margin_right': 2.6,
@@ -31,6 +36,18 @@ class ConfigManager:
             'h3_bold': False,  # 三级标题默认不加粗
             'table_caption_bold': False,  # 表格标题默认不加粗
             'figure_caption_bold': False  # 图形标题默认不加粗
+        }
+        
+        # 默认自动更新配置参数
+        self.default_update_params = {
+            'auto_update': True,  # 默认启用自动更新
+            'update_check_url': 'http://172.14.60.197/update.xml'  # 默认更新检查地址
+        }
+        
+        # 合并所有默认参数（用于兼容旧代码）
+        self.default_params = {
+            **self.default_format_params,
+            **self.default_update_params
         }
         
         # 字体选项
@@ -53,13 +70,13 @@ class ConfigManager:
 
     def load_config(self, config_path=None):
         """
-        加载配置文件
+        加载排版配置文件
         
         Args:
             config_path (str): 配置文件路径，如果为None则使用默认路径
             
         Returns:
-            dict: 配置字典
+            dict: 排版配置字典
         """
         if config_path is None:
             config_path = self.default_config_path
@@ -68,21 +85,54 @@ class ConfigManager:
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                self.logger.info(f"配置文件 '{config_path}' 加载成功")
-                return self._validate_config(config)
+                self.logger.info(f"排版配置文件 '{config_path}' 加载成功")
+                self.format_config = self._validate_format_config(config)
+                return self.format_config
             except Exception as e:
-                self.logger.error(f"加载配置文件 '{config_path}' 失败: {e}")
-                return self.default_params.copy()
+                self.logger.error(f"加载排版配置文件 '{config_path}' 失败: {e}")
+                self.format_config = self.default_format_params.copy()
+                return self.format_config
         else:
-            self.logger.warning(f"配置文件 '{config_path}' 不存在，使用默认配置")
-            return self.default_params.copy()
+            self.logger.warning(f"排版配置文件 '{config_path}' 不存在，使用默认配置")
+            self.format_config = self.default_format_params.copy()
+            return self.format_config
+
+    def load_update_config(self, config_path=None):
+        """
+        加载自动更新配置文件
+        
+        Args:
+            config_path (str): 更新配置文件路径，如果为None则使用默认路径
+            
+        Returns:
+            dict: 自动更新配置字典
+        """
+        if config_path is None:
+            config_path = self.update_config_path
+            
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                self.logger.info(f"自动更新配置文件 '{config_path}' 加载成功")
+                self.update_config = self._validate_update_config(config)
+                return self.update_config
+            except Exception as e:
+                self.logger.error(f"加载自动更新配置文件 '{config_path}' 失败: {e}")
+                self.update_config = self.default_update_params.copy()
+                return self.update_config
+        else:
+            self.logger.warning(f"自动更新配置文件 '{config_path}' 不存在，使用默认配置")
+            # 注意：这里不设置默认配置，而是返回None，让调用者知道文件不存在
+            self.update_config = None
+            return None
 
     def save_config(self, config, config_path=None):
         """
-        保存配置到文件
+        保存排版配置到文件
         
         Args:
-            config (dict): 配置字典
+            config (dict): 排版配置字典
             config_path (str): 配置文件路径，如果为None则使用默认路径
         """
         if config_path is None:
@@ -91,22 +141,41 @@ class ConfigManager:
         try:
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=4)
-            self.logger.info(f"配置已保存到 '{config_path}'")
+            self.logger.info(f"排版配置已保存到 '{config_path}'")
         except Exception as e:
-            self.logger.error(f"保存配置到 '{config_path}' 失败: {e}")
+            self.logger.error(f"保存排版配置到 '{config_path}' 失败: {e}")
             raise
 
-    def _validate_config(self, config):
+    def save_update_config(self, config, config_path=None):
         """
-        验证配置参数的有效性
+        保存自动更新配置到文件
         
         Args:
-            config (dict): 配置字典
+            config (dict): 自动更新配置字典
+            config_path (str): 更新配置文件路径，如果为None则使用默认路径
+        """
+        if config_path is None:
+            config_path = self.update_config_path
+            
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
+            self.logger.info(f"自动更新配置已保存到 '{config_path}'")
+        except Exception as e:
+            self.logger.error(f"保存自动更新配置到 '{config_path}' 失败: {e}")
+            raise
+
+    def _validate_format_config(self, config):
+        """
+        验证排版配置参数的有效性
+        
+        Args:
+            config (dict): 排版配置字典
             
         Returns:
-            dict: 验证后的配置字典
+            dict: 验证后的排版配置字典
         """
-        validated_config = self.default_params.copy()
+        validated_config = self.default_format_params.copy()
         
         for key, value in config.items():
             if key in validated_config:
@@ -140,6 +209,52 @@ class ConfigManager:
                     validated_config[key] = value
                     
         return validated_config
+
+    def _validate_update_config(self, config):
+        """
+        验证自动更新配置参数的有效性
+        
+        Args:
+            config (dict): 自动更新配置字典
+            
+        Returns:
+            dict: 验证后的自动更新配置字典
+        """
+        validated_config = self.default_update_params.copy()
+        
+        for key, value in config.items():
+            if key in validated_config:
+                # 验证布尔类型参数
+                if key == 'auto_update':
+                    validated_config[key] = bool(value)
+                # 更新检查URL
+                elif key == 'update_check_url':
+                    validated_config[key] = str(value)
+                    
+        return validated_config
+
+    def _validate_config(self, config):
+        """
+        验证所有配置参数的有效性（兼容旧代码）
+        
+        Args:
+            config (dict): 配置字典
+            
+        Returns:
+            dict: 验证后的配置字典
+        """
+        # 分别验证排版配置和更新配置
+        format_config = {k: v for k, v in config.items() if k in self.default_format_params}
+        update_config = {k: v for k, v in config.items() if k in self.default_update_params}
+        
+        validated_format_config = self._validate_format_config(format_config)
+        validated_update_config = self._validate_update_config(update_config)
+        
+        # 合并验证后的配置（兼容旧代码）
+        return {
+            **validated_format_config,
+            **validated_update_config
+        }
 
     def get_font_options(self, font_type):
         """
@@ -188,9 +303,27 @@ class ConfigManager:
 
     def get_default_config(self):
         """
-        获取默认配置的副本
+        获取默认配置的副本（兼容旧代码）
         
         Returns:
             dict: 默认配置字典的副本
         """
         return self.default_params.copy()
+
+    def get_default_format_config(self):
+        """
+        获取默认排版配置的副本
+        
+        Returns:
+            dict: 默认排版配置字典的副本
+        """
+        return self.default_format_params.copy()
+
+    def get_default_update_config(self):
+        """
+        获取默认自动更新配置的副本
+        
+        Returns:
+            dict: 默认自动更新配置字典的副本
+        """
+        return self.default_update_params.copy()

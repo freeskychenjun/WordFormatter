@@ -1,0 +1,4 @@
+{
+    "auto_update": true,
+    "update_check_url": "http://172.14.60.197/update.xml"
+}

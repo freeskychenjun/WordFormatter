@@ -350,21 +350,19 @@ class WordProcessor:
                                 # 保存原始字体大小
                                 original_font_size = run.font.size
                                 
-                                # 只有当需要设置仿宋字体时才修改字体名称
-                                # 但无论如何，字体大小必须严格保持原始值
-                                if '仿宋' in body_font and original_font_size:
-                                    # 仅修改字体名称，严格保持原始字体大小
+                                # 确保表格使用的字体与正文一致，同时保持字体大小不变
+                                if original_font_size:
+                                    # 仅修改字体名称为正文字体，严格使用原始字体大小
                                     self.document_formatter._set_run_font(
                                         run, body_font, 
                                         original_font_size.pt,  # 严格使用原始字体大小
                                         set_color=apply_color
                                     )
-                                elif '仿宋' in body_font and not original_font_size:
-                                    # 对于没有明确字体大小的情况，也使用一个合理的默认值
-                                    # 但不使用正文字体大小，以避免受正文字体设置影响
+                                elif not original_font_size:
+                                    # 对于没有明确字体大小的情况，使用正文大小作为默认值
                                     self.document_formatter._set_run_font(
                                         run, body_font, 
-                                        12,  # 使用固定的默认大小12pt，不受正文字体设置影响
+                                        self.config['body_size'],  # 使用正文字体大小作为默认值
                                         set_color=apply_color
                                     )
                                 # 其他情况不做任何修改，完全保持表格内容的原始格式
