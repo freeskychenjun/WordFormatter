@@ -35,7 +35,9 @@ class ConfigManager:
             'h2_bold': True,   # 二级标题默认加粗
             'h3_bold': False,  # 三级标题默认不加粗
             'table_caption_bold': False,  # 表格标题默认不加粗
-            'figure_caption_bold': False  # 图形标题默认不加粗
+            'figure_caption_bold': False,  # 图形标题默认不加粗
+            'body_use_times_roman': True,  # 正文默认使用Times New Roman
+            'table_use_times_roman': True  # 表格默认使用Times New Roman
         }
         
         # 默认自动更新配置参数
@@ -189,7 +191,7 @@ class ConfigManager:
                     except (ValueError, TypeError):
                         self.logger.warning(f"无效的数值参数 '{key}': {value}，使用默认值")
                 # 验证布尔类型参数
-                elif key in ['set_outline', 'h1_bold', 'h2_bold', 'h3_bold', 'table_caption_bold', 'figure_caption_bold']:
+                elif key in ['set_outline', 'h1_bold', 'h2_bold', 'h3_bold', 'table_caption_bold', 'figure_caption_bold', 'body_use_times_roman', 'table_use_times_roman']:
                     validated_config[key] = bool(value)
                 # 验证大纲级别参数
                 elif key in ['table_caption_outline_level', 'figure_caption_outline_level']:

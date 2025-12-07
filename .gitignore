@@ -44,6 +44,13 @@ test_*.py
 *_test.py
 test_*/
 tests/
+# Test documents
+test_*.docx
+title_test_*.docx
+debug_test_*.docx
+comprehensive_test_*.docx
+complex_test_*.docx
+verification_test_*.docx
 
 # Build outputs
 *.exe

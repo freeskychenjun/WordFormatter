@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class WordFormatterGUI:
     def __init__(self, master):
         self.master = master
-        master.title("报告自动排版工具_JXSLY V1.0.1")
+        master.title("报告自动排版工具_JXSLY V1.0.2")
         # 增加窗体尺寸：宽度增加7%，高度再增加5%
         # 原始尺寸：1320x813，调整后约为1412x942
         master.geometry("1412x942")
@@ -301,6 +301,15 @@ class WordFormatterGUI:
         create_font_size_combo("正文/四级字号", 'body_size', row, 2, width=18)
         create_entry("正文行距(磅)", 'line_spacing', row, 4, width=15)
         row += 1
+        # 在同一行添加正文Times New Roman复选框和表格标题加粗复选框
+        create_checkbox("正文英文/数字使用Times New Roman", 'body_use_times_roman', row, 0, default_value=True)  # 默认启用
+        # 添加表格标题加粗复选框（放在同一行的右侧）
+        ttk.Label(params_frame, text="表格标题加粗").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
+        table_bold_var = tk.BooleanVar(value=False)  # 默认为不加粗
+        table_bold_checkbox = ttk.Checkbutton(params_frame, variable=table_bold_var)
+        table_bold_checkbox.grid(row=row, column=5, sticky=tk.W, padx=5, pady=3)
+        self.checkboxes['table_caption_bold'] = table_bold_var
+        row += 1
         
         # Section: Other Elements
         row = create_section_header("其他元素", None, row)
@@ -313,18 +322,13 @@ class WordFormatterGUI:
         table_outline_combo.set('8')  # 默认为8级
         self.entries['table_caption_outline_level'] = table_outline_combo
         row += 1
-        # 添加表格标题加粗复选框（放在大纲级别控件下方）
-        ttk.Label(params_frame, text="表格标题加粗").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
-        table_bold_var = tk.BooleanVar(value=False)  # 默认为不加粗
-        table_bold_checkbox = ttk.Checkbutton(params_frame, variable=table_bold_var)
-        table_bold_checkbox.grid(row=row, column=5, sticky=tk.W, padx=5, pady=3)
-        self.checkboxes['table_caption_bold'] = table_bold_var
+        create_checkbox("表格内容英文/数字使用Times New Roman", 'table_use_times_roman', row, 0, default_value=True)  # 默认启用
         row += 1
         
         create_combo("图形标题字体", 'figure_caption_font', self.font_options['figure_caption'], row, 0, readonly=False, width=18)
         create_font_size_combo("图形标题字号", 'figure_caption_size', row, 2, width=18)
-        # 添加图表标题大纲级别（移到同一行）
-        ttk.Label(params_frame, text="图表标题大纲级别").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
+        # 添加图形标题大纲级别（移到同一行）
+        ttk.Label(params_frame, text="图形标题大纲级别").grid(row=row, column=4, sticky=tk.W, padx=5, pady=3)
         figure_outline_combo = ttk.Combobox(params_frame, values=['无', '1', '2', '3', '4', '5', '6', '7', '8', '9'], width=18)
         figure_outline_combo.grid(row=row, column=5, sticky=tk.EW, padx=5, pady=3)
         figure_outline_combo.set('6')  # 默认为6级

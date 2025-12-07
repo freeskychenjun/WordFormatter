@@ -15,8 +15,8 @@ def zip_file(source_path, output_path):
         print(f"创建压缩文件时出错: {e}")
         return False
 
-# 压缩Wordformatter.exe
-source_file = "dist/Wordformatter.exe"
+# 压缩WordFormatter.exe
+source_file = "dist/WordFormatter.exe"
 # 设置输出的zip文件名
 output_zip = "Wordformatter_V1.0.1.zip"
 

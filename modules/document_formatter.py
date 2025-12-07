@@ -26,8 +26,12 @@ class DocumentFormatter:
         else:
             self.logger.info(message)
 
-    def _set_run_font(self, run, font_name, size_pt, set_color=False, is_bold=False):
-        """设置单个run的字体属性"""
+    def _set_run_font(self, run, font_name, size_pt, set_color=False, is_bold=False, use_times_roman_for_ascii=False):
+        """设置单个run的字体属性
+        
+        参数:
+            use_times_roman_for_ascii: 如果为True，将ASCII字符（英文、数字、符号）设置为Times New Roman字体
+        """
         # 尝试多种字体名称设置方式
         # 1. 设置高级API的font.name属性
         run.font.name = font_name
@@ -41,10 +45,13 @@ class DocumentFormatter:
         rPr = run._r.get_or_add_rPr()
         rFonts = rPr.get_or_add_rFonts()
         
+        # 确定要使用的字体
+        ascii_font = "Times New Roman" if use_times_roman_for_ascii else font_name
+        
         # 设置所有字符类型的字体
-        rFonts.set(qn('w:ascii'), font_name)      # ASCII字符（英文、数字、符号）
-        rFonts.set(qn('w:hAnsi'), font_name)      # 高ASCII字符
-        rFonts.set(qn('w:eastAsia'), font_name)   # 中文字体
+        rFonts.set(qn('w:ascii'), ascii_font)      # ASCII字符（英文、数字、符号）
+        rFonts.set(qn('w:hAnsi'), ascii_font)      # 高ASCII字符
+        rFonts.set(qn('w:eastAsia'), font_name)    # 中文字体
         
         # 3. 额外设置cs（复杂脚本）字体，确保所有语言都能正确显示
         rFonts.set(qn('w:cs'), font_name)
@@ -61,10 +68,10 @@ class DocumentFormatter:
         if hasattr(rFonts, 'themeFontCs'):
             rFonts.themeFontCs = None
 
-    def _apply_font_to_runs(self, para, font_name, size_pt, set_color=False, is_bold=False):
+    def _apply_font_to_runs(self, para, font_name, size_pt, set_color=False, is_bold=False, use_times_roman_for_ascii=False):
         """应用字体设置到段落的所有runs"""
         for run in para.runs:
-            self._set_run_font(run, font_name, size_pt, set_color=set_color, is_bold=is_bold)
+            self._set_run_font(run, font_name, size_pt, set_color=set_color, is_bold=is_bold, use_times_roman_for_ascii=use_times_roman_for_ascii)
 
     def _get_paragraph_font_info(self, para):
         """获取段落主要字体和字号信息"""

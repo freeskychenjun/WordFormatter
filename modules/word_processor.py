@@ -115,6 +115,7 @@ class WordProcessor:
                         text = potential_caption.text.strip()
                         if text:
                             # 单独成行且以"图"或"表"开头的段落都识别为图表标题，不再要求居中对齐
+                            # 特别地，对于表格标题，即使不是居中对齐也会被识别
                             if text.startswith("图") or text.startswith("表"):
                                 detected_type = "图" if text.startswith("图") else "表"
                                 # 如果标题未居中，设置为居中对齐
@@ -185,14 +186,8 @@ class WordProcessor:
                             break
                     if caption_found: break
 
-        # 查找主标题和副标题
-        title_indices, subtitle_indices = self.title_handler._find_title_and_subtitle_paragraphs(doc, is_from_txt)
-
-        # 将标题和副标题索引加入已处理集合
-        for idx in title_indices:
-            processed_indices.add(idx)
-        for idx in subtitle_indices:
-            processed_indices.add(idx)
+        # 不再查找主标题和副标题
+        title_indices, subtitle_indices = [], []
 
         self._log("预扫描完成，开始逐段格式化...")
         if self.config['set_outline']:
@@ -212,70 +207,70 @@ class WordProcessor:
         re_number_h5 = re.compile(r'^\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*\d+\s*[\.．]\s*$')  # 例如 "7.8.5.3.1." (4个点)
         re_attachment = re.compile(r'^附件\s*(\d+|[一二三四五六七八九十百千万零]+)?\s*[:：]?$')
 
+        # 已移除主标题和副标题的格式化功能
         # 格式化主标题
-        if title_indices:
-            self._log(f"\n开始格式化主标题（共 {len(title_indices)} 行）...")
-            for idx in title_indices:
-                para = all_blocks[idx]
-                self._log(f"段落 {idx + 1}: 主标题行 - \"{para.text[:30]}...\"")
-                self.document_formatter._strip_leading_whitespace(para)
-                self.document_formatter._apply_font_to_runs(para, self.config['h1_font'], self.config['h1_size'],
-                                                            set_color=apply_color)
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                para.paragraph_format.first_line_indent = None
-                para.paragraph_format.left_indent = Pt(0)
-
-                # 设置标题行间距
-                spacing = para._p.get_or_add_pPr().get_or_add_spacing()
-                spacing.set(qn('w:beforeAutospacing'), '0')
-                spacing.set(qn('w:afterAutospacing'), '0')
-                # 根据配置设置一级标题段前、段后间距（直接使用磅值）
-                h1_space_before_pts = float(self.config['h1_space_before'])
-                h1_space_after_pts = float(self.config['h1_space_after'])
-                para.paragraph_format.space_before = Pt(h1_space_before_pts)
-                para.paragraph_format.space_after = Pt(h1_space_after_pts)
-                para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
-                
-                # 设置大纲级别为1级
-                if self.config['set_outline']:
-                    self.document_formatter._set_outline_level(para, 1)
-                    self._log(f"  > 已设置主标题的大纲级别为 1")
-
-                self.document_formatter._reset_pagination_properties(para)
-
-        # 格式化副标题
-        if subtitle_indices:
-            self._log(f"\n开始格式化副标题（共 {len(subtitle_indices)} 行）...")
-            for idx in subtitle_indices:
-                para = all_blocks[idx]
-                self._log(f"段落 {idx + 1}: 副标题行 - \"{para.text[:30]}...\"")
-                self.document_formatter._strip_leading_whitespace(para)
-                self.document_formatter._apply_font_to_runs(para, self.config['h2_font'], self.config['h2_size'],
-                                                            set_color=apply_color)
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                para.paragraph_format.first_line_indent = None
-                para.paragraph_format.left_indent = Pt(0)
-
-                # 设置副标题行间距
-                spacing = para._p.get_or_add_pPr().get_or_add_spacing()
-                spacing.set(qn('w:beforeAutospacing'), '0')
-                spacing.set(qn('w:afterAutospacing'), '0')
-                # 根据配置设置二级标题段前、段后间距（直接使用磅值）
-                h2_space_before_pts = float(self.config['h2_space_before'])
-                h2_space_after_pts = float(self.config['h2_space_after'])
-                para.paragraph_format.space_before = Pt(h2_space_before_pts)
-                para.paragraph_format.space_after = Pt(h2_space_after_pts)
-                para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
-
-                self.document_formatter._reset_pagination_properties(para)
+        # if title_indices:
+        #     self._log(f"\n开始格式化主标题（共 {len(title_indices)} 行）...")
+        #     for idx in title_indices:
+        #         para = all_blocks[idx]
+        #         self._log(f"段落 {idx + 1}: 主标题行 - \"{para.text[:30]}...\"")
+        #         self.document_formatter._strip_leading_whitespace(para)
+        #         self.document_formatter._apply_font_to_runs(para, self.config['h1_font'], self.config['h1_size'],
+        #                                                     set_color=apply_color)
+        #         para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        #         para.paragraph_format.first_line_indent = None
+        #         para.paragraph_format.left_indent = Pt(0)
+        #
+        #         # 设置标题行间距
+        #         spacing = para._p.get_or_add_pPr().get_or_add_spacing()
+        #         spacing.set(qn('w:beforeAutospacing'), '0')
+        #         spacing.set(qn('w:afterAutospacing'), '0')
+        #         # 根据配置设置一级标题段前、段后间距（直接使用磅值）
+        #         h1_space_before_pts = float(self.config['h1_space_before'])
+        #         h1_space_after_pts = float(self.config['h1_space_after'])
+        #         para.paragraph_format.space_before = Pt(h1_space_before_pts)
+        #         para.paragraph_format.space_after = Pt(h1_space_after_pts)
+        #         para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+        #         
+        #         # 设置大纲级别为1级
+        #         if self.config['set_outline']:
+        #             self.document_formatter._set_outline_level(para, 1)
+        #             self._log(f"  > 已设置主标题的大纲级别为 1")
+        #
+        #         self.document_formatter._reset_pagination_properties(para)
+        #
+        # # 格式化副标题
+        # if subtitle_indices:
+        #     self._log(f"\n开始格式化副标题（共 {len(subtitle_indices)} 行）...")
+        #     for idx in subtitle_indices:
+        #         para = all_blocks[idx]
+        #         self._log(f"段落 {idx + 1}: 副标题行 - \"{para.text[:30]}...\"")
+        #         self.document_formatter._strip_leading_whitespace(para)
+        #         self.document_formatter._apply_font_to_runs(para, self.config['h2_font'], self.config['h2_size'],
+        #                                                     set_color=apply_color)
+        #         para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        #         para.paragraph_format.first_line_indent = None
+        #         para.paragraph_format.left_indent = Pt(0)
+        #
+        #         # 设置副标题行间距
+        #         spacing = para._p.get_or_add_pPr().get_or_add_spacing()
+        #         spacing.set(qn('w:beforeAutospacing'), '0')
+        #         spacing.set(qn('w:afterAutospacing'), '0')
+        #         # 根据配置设置二级标题段前、段后间距（直接使用磅值）
+        #         h2_space_before_pts = float(self.config['h2_space_before'])
+        #         h2_space_after_pts = float(self.config['h2_space_after'])
+        #         para.paragraph_format.space_before = Pt(h2_space_before_pts)
+        #         para.paragraph_format.space_after = Pt(h2_space_after_pts)
+        #         para.paragraph_format.line_spacing = Pt(self.config['line_spacing'])
+        #
+        #         self.document_formatter._reset_pagination_properties(para)
 
         block_idx = 0
         while block_idx < len(all_blocks):
             block = all_blocks[block_idx]
 
             if block_idx in processed_indices:
-                if block_idx not in title_indices and block_idx not in subtitle_indices:
-                    self._log(f"块 {block_idx + 1}: 已作为图表/附件标题处理 - 跳过")
+                self._log(f"块 {block_idx + 1}: 已作为图表/附件标题处理 - 跳过")
                 block_idx += 1
                 continue
 
@@ -291,7 +286,9 @@ class WordProcessor:
                         if len(cell.paragraphs) > 0:
                             for para in cell.paragraphs:
                                 text = para.text.strip()
-                                if text and para.alignment == WD_ALIGN_PARAGRAPH.CENTER and text.startswith("表"):
+                                if text and text.startswith("表"):
+                                    # 确保标题始终居中对齐
+                                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
                                     self._log(f"  > 发现表格内部标题: \"{text[:30]}...\"")
                                     config_font = self.config['table_caption_font']
                                     config_size = self.config['table_caption_size']
@@ -303,22 +300,58 @@ class WordProcessor:
                                     para.paragraph_format.first_line_indent = None
                                     para.paragraph_format.left_indent = Pt(0)
                                     para.paragraph_format.right_indent = Pt(0)
-                                    # 确保完全清除任何可能的缩进设置
-                                    ind = para._p.get_or_add_pPr().get_or_add_ind()
-                                    ind.set(qn("w:firstLineChars"), "0")
-                                    ind.set(qn("w:leftChars"), "0")
-                                    # 移除任何可能存在的其他缩进相关属性
-                                    if hasattr(ind, 'get_or_add_firstLine'):
+                                    para.paragraph_format.hanging_indent = Pt(0)
+                                    
+                                    # 确保彻底清除所有缩进相关设置 - 使用更健壮的方式
+                                    try:
+                                        pPr = para._p.get_or_add_pPr()
+                                        
+                                        # 完全移除现有的缩进元素，然后创建一个全新的
+                                        existing_ind = pPr.find(qn('w:ind'))
+                                        if existing_ind is not None:
+                                            pPr.remove(existing_ind)
+                                        
+                                        # 创建一个全新的、干净的缩进元素
+                                        new_ind = OxmlElement('w:ind')
+                                        
+                                        # 显式设置所有可能的缩进属性为0，使用多种单位确保彻底移除缩进
+                                        new_ind.set(qn('w:firstLineChars'), '0')
+                                        new_ind.set(qn('w:leftChars'), '0')
+                                        new_ind.set(qn('w:rightChars'), '0')
+                                        new_ind.set(qn('w:firstLine'), '0')
+                                        new_ind.set(qn('w:left'), '0')
+                                        new_ind.set(qn('w:right'), '0')
+                                        new_ind.set(qn('w:hanging'), '0')
+                                        new_ind.set(qn('w:hangingChars'), '0')
+                                        
+                                        # 添加到pPr元素
+                                        pPr.append(new_ind)
+                                        
+                                        # 检查并移除可能影响缩进的其他元素
+                                        for element_name in ['w:firstLine', 'w:firstLineChars', 'w:left', 'w:leftChars',
+                                                            'w:right', 'w:rightChars', 'w:hanging', 'w:hangingChars']:
+                                            element = pPr.find(qn(element_name))
+                                            if element is not None:
+                                                pPr.remove(element)
+                                        
+                                        # 设置标记，表明这个段落已经明确设置为无缩进
+                                        para._has_no_indent = True
+                                        
+                                    except Exception as e:
+                                        self._log(f"设置表格标题缩进时出错: {e}")
+                                        # 即使发生异常，仍然尝试通过简单的API调用确保没有缩进
                                         try:
-                                            ind.remove(ind.get_or_add_firstLine())
+                                            para.paragraph_format.first_line_indent = None
+                                            para.paragraph_format.left_indent = Pt(0)
+                                            # 额外添加这一行，直接设置为负数以强制覆盖可能存在的缩进
+                                            para.paragraph_format.left_indent = Pt(-0.01)
+                                            # 然后再设置为0
+                                            para.paragraph_format.left_indent = Pt(0)
                                         except:
                                             pass
-                                    # 确保应用正确的缩进设置
-                                    if qn("w:firstLine") in [child.tag for child in ind]:
-                                        for child in ind:
-                                            if child.tag == qn("w:firstLine"):
-                                                ind.remove(child)
-                                                break
+                                    
+                                    # 标记为表格标题，避免后续被覆盖
+                                    para._is_table_caption = True
 
                                 # 应用表格标题大纲级别设置
                                 if 'table_caption_outline_level' in self.config:
@@ -344,7 +377,12 @@ class WordProcessor:
                             # 跳过已经处理过的表格标题
                             if para.alignment == WD_ALIGN_PARAGRAPH.CENTER and para.text.strip().startswith("表"):
                                 continue
-                                
+                                 
+                            # 检查是否为表格标题
+                            is_table_caption = hasattr(para, '_is_table_caption') and para._is_table_caption
+                            if is_table_caption:
+                                continue
+                             
                             # 遍历段落中的所有run
                             for run in para.runs:
                                 # 保存原始字体大小
@@ -356,14 +394,16 @@ class WordProcessor:
                                     self.document_formatter._set_run_font(
                                         run, body_font, 
                                         original_font_size.pt,  # 严格使用原始字体大小
-                                        set_color=apply_color
+                                        set_color=apply_color,
+                                        use_times_roman_for_ascii=self.config.get('table_use_times_roman', True)
                                     )
                                 elif not original_font_size:
                                     # 对于没有明确字体大小的情况，使用正文大小作为默认值
                                     self.document_formatter._set_run_font(
                                         run, body_font, 
                                         self.config['body_size'],  # 使用正文字体大小作为默认值
-                                        set_color=apply_color
+                                        set_color=apply_color,
+                                        use_times_roman_for_ascii=self.config.get('table_use_times_roman', True)
                                     )
                                 # 其他情况不做任何修改，完全保持表格内容的原始格式
                 block_idx += 1
@@ -395,15 +435,18 @@ class WordProcessor:
                 elif re_h3.match(text_to_check):
                     self._log(f"  > 文字识别为三级标题: \"{para_text_preview}...\"")
                     self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                                set_color=apply_color)
+                                                                set_color=apply_color,
+                                                                use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
                 elif re_h4.match(text_to_check):
                     self._log(f"  > 文字识别为四级标题: \"{para_text_preview}...\"")
                     self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                                set_color=apply_color)
+                                                                set_color=apply_color,
+                                                                use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
                 elif text_to_check:
                     self._log(f"  > 文字识别为正文: \"{para_text_preview}...\"")
                     self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                                set_color=apply_color)
+                                                                set_color=apply_color,
+                                                                use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
 
                 # 确保图片或附件中的文字（即使是标题）也不缩进
                 if re_h1.match(text_to_check) or re_h2.match(text_to_check) or re_h3.match(text_to_check) or re_h4.match(text_to_check):
@@ -426,12 +469,40 @@ class WordProcessor:
             # 检查段落的大纲级别
             outline_level = self.document_formatter._get_outline_level(para)
 
+            # 特殊处理：如果段落以"表"开头，强制识别为表格标题，不作为普通标题处理
+            if para.text.strip().startswith("表"):
+                self._log(f"段落 {current_block_num}: 检测到以'表'开头的段落，强制识别为表格标题")
+                # 应用表格标题格式
+                self.document_formatter._strip_leading_whitespace(para)
+                config_font = self.config['table_caption_font']
+                config_size = self.config['table_caption_size']
+                config_bold = self.config.get('table_caption_bold', False)
+                self.document_formatter._apply_font_to_runs(para, config_font, config_size,
+                                                           set_color=apply_color, is_bold=config_bold)
+                # 表格标题居中对齐且不缩进
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                self.document_formatter._apply_text_indent_and_align(para)
+                # 应用表格标题大纲级别设置
+                if 'table_caption_outline_level' in self.config:
+                    outline_level_value = self.config['table_caption_outline_level']
+                    if outline_level_value != '无' and outline_level_value != '':
+                        try:
+                            level = int(outline_level_value)
+                            if 1 <= level <= 9:
+                                self.document_formatter._set_outline_level(para, level)
+                                self._log(f"  > 已设置表格标题的大纲级别为 {level}")
+                        except (ValueError, TypeError):
+                            pass  # 忽略无效值
+                self.document_formatter._reset_pagination_properties(para)
+                block_idx += 1
+                continue
+
             # 检查段落的样式名称是否为标题样式
             is_heading_style = False
             try:
-                style_name = para.style.name
+                style_name = getattr(para.style, 'name', '')
                 # 检查样式名称是否为标题样式，如"标题1"、"标题2"、"Heading 1"等
-                if style_name.startswith("标题") or style_name.startswith("Heading"):
+                if style_name and (style_name.startswith("标题") or style_name.startswith("Heading")):
                     is_heading_style = True
                     # 如果是标题样式但没有大纲级别，设置默认大纲级别
                     if outline_level is None:
@@ -446,7 +517,7 @@ class WordProcessor:
 
             # 如果段落有大纲级别或是标题样式，则不进行首行缩进
             if outline_level is not None or is_heading_style:
-                level = outline_level + 1  # 大纲级别0-8对应标题级别1-9
+                level = (outline_level or 0) + 1  # 大纲级别0-8对应标题级别1-9
                 self._log(f"段落 {current_block_num}: 大纲级别 {level} 标题 - \"{para_text_preview}...\"")
                 self.document_formatter._strip_leading_whitespace(para)
 
@@ -485,7 +556,8 @@ class WordProcessor:
                 else:
                     # 4-9级标题使用正文字体和默认间距
                     self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                                set_color=apply_color)
+                                                                set_color=apply_color,
+                                                                use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
                     para.paragraph_format.space_before = Pt(0)
                     para.paragraph_format.space_after = Pt(0)
 
@@ -542,7 +614,7 @@ class WordProcessor:
                             self.document_formatter._set_outline_level(para, 2)
                             self._log(f"  > 已设置为2级大纲级别")
                         # 标记此段落不需要缩进
-                        para._has_no_indent = True
+                        setattr(para, '_has_no_indent', True)
                         self.document_formatter._reset_pagination_properties(para)
                         block_idx += 1
                         continue
@@ -570,7 +642,7 @@ class WordProcessor:
                             self.document_formatter._set_outline_level(para, 3)
                             self._log(f"  > 已设置为3级大纲级别")
                         # 标记此段落不需要缩进
-                        para._has_no_indent = True
+                        setattr(para, '_has_no_indent', True)
                         self.document_formatter._reset_pagination_properties(para)
                         block_idx += 1
                         continue
@@ -580,7 +652,8 @@ class WordProcessor:
                         self.document_formatter._strip_leading_whitespace(para)
                         # 4级标题使用正文字体
                         self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                                    set_color=apply_color)
+                                                                    set_color=apply_color,
+                                                                    use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
                         # 设置默认间距
                         para.paragraph_format.space_before = Pt(0)
                         para.paragraph_format.space_after = Pt(0)
@@ -596,7 +669,7 @@ class WordProcessor:
                             self.document_formatter._set_outline_level(para, 4)
                             self._log(f"  > 已设置为4级大纲级别")
                         # 标记此段落不需要缩进
-                        para._has_no_indent = True
+                        setattr(para, '_has_no_indent', True)
                         self.document_formatter._reset_pagination_properties(para)
                         block_idx += 1
                         continue
@@ -606,7 +679,8 @@ class WordProcessor:
                         self.document_formatter._strip_leading_whitespace(para)
                         # 5级标题使用正文字体
                         self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                                    set_color=apply_color)
+                                                                    set_color=apply_color,
+                                                                    use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
                         # 设置默认间距
                         para.paragraph_format.space_before = Pt(0)
                         para.paragraph_format.space_after = Pt(0)
@@ -622,7 +696,7 @@ class WordProcessor:
                             self.document_formatter._set_outline_level(para, 5)
                             self._log(f"  > 已设置为5级大纲级别")
                         # 标记此段落不需要缩进
-                        para._has_no_indent = True
+                        setattr(para, '_has_no_indent', True)
                         self.document_formatter._reset_pagination_properties(para)
                         block_idx += 1
                         continue
@@ -637,7 +711,8 @@ class WordProcessor:
             self._log(f"段落 {current_block_num}: 正文 - \"{para_text_preview}...\"")
             self.document_formatter._strip_leading_whitespace(para)
             self.document_formatter._apply_font_to_runs(para, self.config['body_font'], self.config['body_size'],
-                                                        set_color=apply_color)
+                                                        set_color=apply_color,
+                                                        use_times_roman_for_ascii=self.config.get('body_use_times_roman', True))
             # 正文需要首行缩进
             self.document_formatter._apply_body_text_indent_and_align(para)
             self.document_formatter._reset_pagination_properties(para)
