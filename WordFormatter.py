@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class WordFormatterGUI:
     def __init__(self, master):
         self.master = master
-        master.title("报告自动排版工具_JXSLY V1.1.2")
+        master.title("报告自动排版工具_JXSLY V1.0.1")
         # 增加窗体尺寸：宽度增加7%，高度再增加5%
         # 原始尺寸：1320x813，调整后约为1412x942
         master.geometry("1412x942")
@@ -634,7 +634,8 @@ class WordFormatterGUI:
                             # 安装更新
                             self.update_manager.install_update(update_file)
                 else:
-                    self.log_to_debug_window(f"当前已是最新版本 v{version}")
+                    # 更新管理器已记录日志，此处不再重复输出
+                    pass
             else:
                 self.log_to_debug_window("未检查到更新")
         except Exception as e:

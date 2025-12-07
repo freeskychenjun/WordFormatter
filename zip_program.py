@@ -18,7 +18,7 @@ def zip_file(source_path, output_path):
 # 压缩Wordformatter.exe
 source_file = "dist/Wordformatter.exe"
 # 设置输出的zip文件名
-output_zip = "Wordformatter_V1.1.2.zip"
+output_zip = "Wordformatter_V1.0.1.zip"
 
 if zip_file(source_file, output_zip):
     # 显示压缩文件信息
