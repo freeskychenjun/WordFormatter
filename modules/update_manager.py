@@ -23,7 +23,7 @@ class UpdateManager:
         """
         self.config = config
         self.log_callback = log_callback
-        self.current_version = "1.0.2"  # 当前应用版本
+        self.current_version = "1.0.3"  # 当前应用版本
         self.update_check_url = self.config.get('update_check_url')  # 从配置中获取更新检查地址
         self.last_check_time = None
         self.logger = logging.getLogger(__name__)
