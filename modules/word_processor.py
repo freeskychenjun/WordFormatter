@@ -398,14 +398,17 @@ class WordProcessor:
                                         use_times_roman_for_ascii=self.config.get('table_use_times_roman', True)
                                     )
                                 elif not original_font_size:
-                                    # 对于没有明确字体大小的情况，使用正文大小作为默认值
-                                    self.document_formatter._set_run_font(
-                                        run, body_font, 
-                                        self.config['body_size'],  # 使用正文字体大小作为默认值
+                                    # 对于没有明确字体大小的情况，不修改字体大小
+                                    # 只修改字体名称，完全保持原始格式
+                                    self.document_formatter._set_run_font_without_size(
+                                        run, body_font,
                                         set_color=apply_color,
                                         use_times_roman_for_ascii=self.config.get('table_use_times_roman', True)
                                     )
                                 # 其他情况不做任何修改，完全保持表格内容的原始格式
+                            
+                            # 标记表格中的段落，防止后续处理中被修改
+                            para._is_table_content = True
                 block_idx += 1
                 continue
 
@@ -707,6 +710,12 @@ class WordProcessor:
                 self._log(
                     f"段落 {current_block_num}: 常规标题格式文本 - \"{para_text_preview}...\" (已禁用自动识别，按正文处理)")
 
+            # 检查是否是表格内容，如果是则跳过处理
+            if hasattr(para, '_is_table_content') and para._is_table_content:
+                self._log(f"段落 {current_block_num}: 表格内容 - 跳过格式化处理")
+                block_idx += 1
+                continue
+            
             # 所有段落都按正文处理
             self._log(f"段落 {current_block_num}: 正文 - \"{para_text_preview}...\"")
             self.document_formatter._strip_leading_whitespace(para)
