@@ -20,13 +20,13 @@ class ConfigManager:
             'page_number_align': '奇偶分页', 'line_spacing': 28,
             'margin_top': 3.7, 'margin_bottom': 3.5, 
             'margin_left': 2.8, 'margin_right': 2.6,
-            'h1_font': '黑体', 'h2_font': '楷体_GB2312', 'h3_font': '宋体', 'body_font': '仿宋_GB2312',
+            'h1_font': '黑体', 'h2_font': '楷体_GB2312', 'h3_font': '宋体', 'body_font': '宋体',
             'page_number_font': '宋体', 'table_caption_font': '黑体', 'figure_caption_font': '黑体',
             'h1_size': 16, 'h1_space_before': 24, 'h1_space_after': 24,
-            'h2_size': 16, 'h2_space_before': 24, 'h2_space_after': 24,
+            'h2_size': 12, 'h2_space_before': 24, 'h2_space_after': 24,
             'h3_size': 12, 'h3_space_before': 24, 'h3_space_after': 24,
-            'body_size': 16, 'page_number_size': 14,
-            'table_caption_size': 14, 'figure_caption_size': 14,
+            'body_size': 12, 'page_number_size': 14,
+            'table_caption_size': 10.5, 'figure_caption_size': 10.5,
             # 添加表格标题和图表标题的大纲级别设置，默认为6级
             'table_caption_outline_level': 8, 'figure_caption_outline_level': 6,
             'set_outline': True,
@@ -57,7 +57,7 @@ class ConfigManager:
             'h1': ['黑体', '方正黑体_GBK', '方正黑体简体', '华文黑体', '宋体', '仿宋', '仿宋_GB2312'],
             'h2': ['楷体_GB2312', '方正楷体_GBK', '楷体', '方正楷体简体', '华文楷体', '宋体', '仿宋', '仿宋_GB2312'],
             'h3': ['宋体', '仿宋_GB2312', '方正仿宋_GBK', '仿宋', '方正仿宋简体', '华文仿宋'],
-            'body': ['仿宋_GB2312', '方正仿宋_GBK', '仿宋', '方正仿宋简体', '华文仿宋', '宋体'], 
+            'body': ['宋体', '仿宋_GB2312', '方正仿宋_GBK', '仿宋', '方正仿宋简体', '华文仿宋'], 
             'table_caption': ['黑体', '宋体', '仿宋_GB2312', '仿宋'], 
             'figure_caption': ['黑体', '宋体', '仿宋_GB2312', '仿宋']
         }
